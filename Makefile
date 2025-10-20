@@ -3,6 +3,7 @@ INDEX ?= bbc
 DATA_DIR ?= ./bbc
 HOST ?= 0.0.0.0
 PORT ?= 8000
+QUESTION ?= Tell me about the connection between Ernie Wise and Vodafone.
 
 .PHONY: ingest serve query env
 
@@ -13,7 +14,7 @@ serve:
 	$(PYTHON) -m src.server
 
 query:
-	$(PYTHON) -m src.client --question "$(Q)"
+	$(PYTHON) -m src.client --question "$(QUESTION)"
 
 env:
 @echo "OPENSEARCH_HOST=$${OPENSEARCH_HOST:-127.0.0.1}"
