@@ -1,7 +1,7 @@
 """OpenSearch client utilities."""
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from opensearchpy import OpenSearch
 from opensearchpy.exceptions import NotFoundError
@@ -15,7 +15,6 @@ LOGGER = get_logger(__name__)
 
 def create_client(settings: Settings) -> OpenSearch:
     """Create an OpenSearch client using provided settings."""
-
     LOGGER.info(
         "Connecting to OpenSearch at %s:%s", settings.opensearch_host, settings.opensearch_port
     )
@@ -30,7 +29,6 @@ def create_client(settings: Settings) -> OpenSearch:
 
 def ensure_index(settings: Settings, dim: int) -> None:
     """Ensure that the target index exists with the correct mapping."""
-
     client = create_client(settings)
     index_name = settings.opensearch_index
     try:
@@ -43,7 +41,10 @@ def ensure_index(settings: Settings, dim: int) -> None:
     body = {
         "settings": {
             "index": {
+                # Enable k-NN index structures
                 "knn": True,
+                # Lucene engine ignores ef_search and derives it from k,
+                # but keeping this setting is harmless if you switch engines later.
                 "knn.algo_param.ef_search": 256,
             }
         },
@@ -60,6 +61,7 @@ def ensure_index(settings: Settings, dim: int) -> None:
                         "name": "hnsw",
                         "space_type": "cosinesimil",
                         "engine": "lucene",
+                        # You can add "parameters": {"m": 16, "ef_construction": 128} here if desired.
                     },
                 },
             }
@@ -70,25 +72,40 @@ def ensure_index(settings: Settings, dim: int) -> None:
 
 
 def knn_search(
-    client: OpenSearch, index: str, query_vec: List[float], k: int, num_candidates: int
+    client: OpenSearch,
+    index: str,
+    query_vec: List[float],
+    k: int,
+    num_candidates: Optional[int] = None,
 ):
-    """Execute a pure vector k-NN search against the embedding field."""
+    """
+    Execute a vector k-NN search against the 'embedding' field.
 
-    response = client.search(
-        index=index,
-        body={
-            "size": k,
-            "query": {
-                "knn": {
-                    "field": "embedding",
-                    "query_vector": query_vec,
+    OpenSearch 3.x k-NN DSL uses the vector field name as the key and
+    expects the query vector under 'vector' (not 'query_vector'), and no 'field' key.
+    """
+    # Core OS 3.x body
+    body = {
+        "size": k,
+        "query": {
+            "knn": {
+                "embedding": {
+                    "vector": query_vec,
                     "k": k,
-                    "num_candidates": num_candidates,
                 }
-            },
-            "_source": ["path", "title", "category", "text"],
+            }
         },
-    )
+        "_source": ["path", "title", "category", "text"],
+    }
+
+    # Optional: if callers pass num_candidates, you *could* map it to rescoring oversampling.
+    # This is mainly useful for on-disk vectors; Lucene in-memory often doesn't need it.
+    if num_candidates and num_candidates > k:
+        body["query"]["knn"]["embedding"]["rescore"] = {
+            "oversample_factor": float(num_candidates) / float(max(k, 1))
+        }
+
+    response = client.search(index=index, body=body)
     LOGGER.info("OpenSearch knn_search took %.2f ms", response.get("took", 0.0))
     return response
 

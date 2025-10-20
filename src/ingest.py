@@ -17,8 +17,8 @@ LOGGER = get_logger(__name__)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Ingest BBC dataset into OpenSearch")
-    parser.add_argument("--data-dir", type=str, required=True, help="Path to BBC dataset root")
+    parser = argparse.ArgumentParser(description="Ingest dataset into OpenSearch")
+    parser.add_argument("--data-dir", type=str, required=True, help="Path to dataset root")
     parser.add_argument("--index-name", type=str, required=True, help="Target OpenSearch index")
     parser.add_argument("--batch-size", type=int, default=128, help="Embedding batch size")
     return parser.parse_args(argv)

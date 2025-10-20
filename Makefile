@@ -8,7 +8,7 @@ QUESTION ?= Tell me about the connection between Ernie Wise and Vodafone.
 .PHONY: ingest serve query env
 
 ingest:
-	$(PYTHON) -m src.ingest_bbc --data-dir $(DATA_DIR) --index-name $(INDEX)
+	$(PYTHON) -m src.ingest --data-dir $(DATA_DIR) --index-name $(INDEX)
 
 serve:
 	$(PYTHON) -m src.server

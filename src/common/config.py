@@ -13,53 +13,66 @@ from dotenv import load_dotenv
 class Settings:
     """Runtime configuration parameters for the application."""
 
+    # OpenSearch
     opensearch_host: str = "127.0.0.1"
     opensearch_port: int = 9200
     opensearch_index: str = "bbc"
 
-    embedding_model_name: str = "thenlper/gte-small"
-    embedding_dimension: int = 384
+    # Embeddings
+    embedding_model: str = "thenlper/gte-small"
 
-    llama_model_path: str = "Llama-Pro-8B/llama-pro-8b.Q8_0.gguf"
-    llama_ctx: int = 8192
-    llama_n_threads: int = max(os.cpu_count() or 1, 1)
-    llama_n_gpu_layers: int = -1
+    # Llama.cpp
+    llama_model_path: str = "neural-chat-7b-v3-3.Q4_K_M.gguf"
+    llama_ctx: int = 4096                    # keep conservative by default on laptops
+    llama_n_threads: int = max(1, (os.cpu_count() or 4) - 1)
+    llama_n_gpu_layers: int = 20             # modest offload; fallback logic drops to CPU if needed
+    llama_n_batch: int = 256                 # prompt processing batch
+    llama_n_ubatch: Optional[int] = 256      # physical micro-batch; None to let llama.cpp choose
+    llama_low_vram: bool = True              # reduce Metal VRAM usage
 
+    # RAG
     rag_top_k: int = 5
     rag_num_candidates: int = 50
 
+    # Server
     server_host: str = "0.0.0.0"
     server_port: int = 8000
 
 
-def _get_int(name: str, default: int) -> int:
-    value = os.getenv(name)
-    if value is None or value.strip() == "":
-        return default
+def _get_int(name: str, default_val: int) -> int:
+    v = os.getenv(name)
+    if v is None or v == "":
+        return default_val
     try:
-        return int(value)
-    except ValueError as exc:
-        raise ValueError(f"Environment variable {name} must be an integer") from exc
+        return int(v)
+    except ValueError:
+        return default_val
 
 
-def load_settings(env_path: Optional[str] = None) -> Settings:
-    """Load application settings from environment variables and optional .env file."""
+def _get_bool(name: str, default_val: bool) -> bool:
+    v = os.getenv(name)
+    if v is None:
+        return default_val
+    return v.lower() in ("1", "true", "yes", "on")
 
-    if env_path:
-        load_dotenv(env_path, override=False)
+
+def load_settings(env_file: str | None = None) -> Settings:
+    """Load settings from environment (.env) with sane defaults."""
+    # Load a .env if present (project root or provided explicit path)
+    if env_file:
+        load_dotenv(env_file)
     else:
-        load_dotenv(override=False)
+        # Probe common locations
+        for candidate in (Path(".env"), Path(__file__).resolve().parent.parent / ".env"):
+            if candidate.exists():
+                load_dotenv(str(candidate))
+                break
 
     return Settings(
         opensearch_host=os.getenv("OPENSEARCH_HOST", Settings.opensearch_host),
         opensearch_port=_get_int("OPENSEARCH_PORT", Settings.opensearch_port),
         opensearch_index=os.getenv("OPENSEARCH_INDEX", Settings.opensearch_index),
-        embedding_model_name=os.getenv(
-            "EMBEDDING_MODEL_NAME", Settings.embedding_model_name
-        ),
-        embedding_dimension=_get_int(
-            "EMBEDDING_DIMENSION", Settings.embedding_dimension
-        ),
+        embedding_model=os.getenv("EMBEDDING_MODEL", Settings.embedding_model),
         llama_model_path=os.getenv(
             "LLAMA_MODEL_PATH",
             str(Path.home() / "models" / Settings.llama_model_path),
@@ -67,10 +80,11 @@ def load_settings(env_path: Optional[str] = None) -> Settings:
         llama_ctx=_get_int("LLAMA_CTX", Settings.llama_ctx),
         llama_n_threads=_get_int("LLAMA_N_THREADS", Settings.llama_n_threads),
         llama_n_gpu_layers=_get_int("LLAMA_N_GPU_LAYERS", Settings.llama_n_gpu_layers),
+        llama_n_batch=_get_int("LLAMA_N_BATCH", Settings.llama_n_batch),
+        llama_n_ubatch=_get_int("LLAMA_N_UBATCH", Settings.llama_n_ubatch or 0) or None,
+        llama_low_vram=_get_bool("LLAMA_LOW_VRAM", Settings.llama_low_vram),
         rag_top_k=_get_int("RAG_TOP_K", Settings.rag_top_k),
-        rag_num_candidates=_get_int(
-            "RAG_NUM_CANDIDATES", Settings.rag_num_candidates
-        ),
+        rag_num_candidates=_get_int("RAG_NUM_CANDIDATES", Settings.rag_num_candidates),
         server_host=os.getenv("SERVER_HOST", Settings.server_host),
         server_port=_get_int("SERVER_PORT", Settings.server_port),
     )

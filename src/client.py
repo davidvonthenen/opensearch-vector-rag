@@ -44,10 +44,11 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     choice = data.get("choices", [{}])[0]
     message = choice.get("message", {})
-    answer = message.get("content", "")
-    print("Assistant:\n")
+    answer = message.get("content", "").strip()
+    print("\n\nAssistant:\n")
     print(answer)
-    print("\nRAG Hits:")
+    print("\n")
+    print("RAG Hits:")
     hits = data.get("rag_context", {}).get("hits", [])
     if not hits:
         print("  (none)")
