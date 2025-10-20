@@ -4,9 +4,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 from pathlib import Path
-from typing import Iterable, Iterator, List, Sequence
+from typing import Iterator, Sequence
 
-from opensearchpy import helpers
 from tqdm import tqdm
 
 from .common.config import Settings, load_settings
@@ -42,17 +41,6 @@ def _iter_documents(data_dir: Path) -> Iterator[dict[str, str]]:
             }
 
 
-def _batched(iterable: Iterable[dict[str, str]], batch_size: int) -> Iterator[List[dict[str, str]]]:
-    batch: List[dict[str, str]] = []
-    for item in iterable:
-        batch.append(item)
-        if len(batch) >= batch_size:
-            yield batch
-            batch = []
-    if batch:
-        yield batch
-
-
 def _doc_id(path: str) -> str:
     return hashlib.sha1(path.encode("utf-8")).hexdigest()
 
@@ -62,37 +50,23 @@ def ingest(data_dir: Path, index_name: str, batch_size: int, settings: Settings)
     embedder = EmbeddingModel(settings)
     ensure_index(settings, embedder.dimension)
 
-    iterator = _batched(_iter_documents(data_dir), batch_size)
+    _ = batch_size  # Retained for CLI compatibility; ingestion is single-document.
     total_indexed = 0
     progress = tqdm(desc="Indexing", unit="docs")
     try:
-        for batch in iterator:
-            if not batch:
-                continue
-            texts = [doc["text"] for doc in batch]
-            embeddings = embedder.encode(texts)
-            actions = []
-            for doc, embedding in zip(batch, embeddings):
-                actions.append(
-                    {
-                        "_op_type": "index",
-                        "_index": index_name,
-                        "_id": _doc_id(doc["path"]),
-                        "_source": {
-                            **doc,
-                            "embedding": to_list(embedding),
-                        },
-                    }
-                )
-            helpers.bulk(
-                client,
-                actions,
-                max_retries=3,
-                raise_on_error=True,
-                retry_on_status=[429],
+        for doc in _iter_documents(data_dir):
+            embedding = embedder.encode([doc["text"]])
+            embedding_list = to_list(embedding[0])
+            doc_id = _doc_id(doc["path"])
+            response = client.index(
+                index=index_name,
+                id=doc_id,
+                body={**doc, "embedding": embedding_list},
             )
-            total_indexed += len(batch)
-            progress.update(len(batch))
+            status = response.get("result", "unknown")
+            LOGGER.info("Indexed %s with status '%s'", doc["path"], status)
+            progress.update(1)
+            total_indexed += 1
     finally:
         progress.close()
 
