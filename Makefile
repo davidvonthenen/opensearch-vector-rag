@@ -7,13 +7,13 @@ PORT ?= 8000
 .PHONY: ingest serve query env
 
 ingest:
-$(PYTHON) -m src.ingest_bbc --data-dir $(DATA_DIR) --index-name $(INDEX)
+	$(PYTHON) -m src.ingest_bbc --data-dir $(DATA_DIR) --index-name $(INDEX)
 
 serve:
-$(PYTHON) -m src.server
+	$(PYTHON) -m src.server
 
 query:
-$(PYTHON) -m src.client --question "$(Q)"
+	$(PYTHON) -m src.client --question "$(Q)"
 
 env:
 @echo "OPENSEARCH_HOST=$${OPENSEARCH_HOST:-127.0.0.1}"
