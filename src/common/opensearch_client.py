@@ -80,11 +80,10 @@ def knn_search(
             "size": k,
             "query": {
                 "knn": {
-                    "embedding": {
-                        "vector": query_vec,
-                        "k": k,
-                        "num_candidates": num_candidates,
-                    }
+                    "field": "embedding",
+                    "query_vector": query_vec,
+                    "k": k,
+                    "num_candidates": num_candidates,
                 }
             },
             "_source": ["path", "title", "category", "text"],
