@@ -59,7 +59,7 @@ def ensure_index(settings: Settings, dim: int) -> None:
                     "method": {
                         "name": "hnsw",
                         "space_type": "cosinesimil",
-                        "engine": "lucene",
+                        "engine": "nmslib",
                     },
                 },
             }
