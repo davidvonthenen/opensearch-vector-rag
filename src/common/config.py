@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -19,7 +20,7 @@ class Settings:
     embedding_model_name: str = "thenlper/gte-small"
     embedding_dimension: int = 384
 
-    llama_model_path: str = "./models/llama.gguf"
+    llama_model_path: str = "Llama-Pro-8B/llama-pro-8b.Q8_0.gguf"
     llama_ctx: int = 8192
     llama_n_threads: int = max(os.cpu_count() or 1, 1)
     llama_n_gpu_layers: int = -1
@@ -59,7 +60,10 @@ def load_settings(env_path: Optional[str] = None) -> Settings:
         embedding_dimension=_get_int(
             "EMBEDDING_DIMENSION", Settings.embedding_dimension
         ),
-        llama_model_path=os.getenv("LLAMA_MODEL_PATH", Settings.llama_model_path),
+        llama_model_path=os.getenv(
+            "LLAMA_MODEL_PATH",
+            str(Path.home() / "models" / Settings.llama_model_path),
+        ),
         llama_ctx=_get_int("LLAMA_CTX", Settings.llama_ctx),
         llama_n_threads=_get_int("LLAMA_N_THREADS", Settings.llama_n_threads),
         llama_n_gpu_layers=_get_int("LLAMA_N_GPU_LAYERS", Settings.llama_n_gpu_layers),
