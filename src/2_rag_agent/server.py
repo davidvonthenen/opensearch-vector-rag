@@ -165,7 +165,7 @@ def _compose_messages(question: str, context_block: str) -> List[Dict[str, str]]
     system_prompt = (
         "You are a fact-focused assistant. Use only the provided context snippets. "
         "If the answer is not grounded in the snippets, respond with 'I don't know.' "
-        "Cite sources inline like [source: ] when drawing from a snippet."
+        "Provide concise answers."
     )
     user_prompt = (
         f"Question:\n{question}\n\nContext:\n{context_block if context_block else 'No context available.'}"

@@ -34,7 +34,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         "messages": [{"role": "user", "content": args.question}],
         "temperature": 0.2,
         "top_p": 0.95,
-        "max_tokens": 512,
+        "max_tokens": 2048,
         "rag": {"k": settings.rag_top_k, "num_candidates": settings.rag_num_candidates},
     }
 
