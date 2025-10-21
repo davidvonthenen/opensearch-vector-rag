@@ -7,7 +7,7 @@ from typing import Sequence
 
 import requests
 
-from .common.config import load_settings
+from ..common.config import load_settings
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:

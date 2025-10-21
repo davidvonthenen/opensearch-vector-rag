@@ -8,10 +8,10 @@ from typing import Iterator, Sequence
 
 from tqdm import tqdm
 
-from .common.config import Settings, load_settings
-from .common.embeddings import EmbeddingModel, to_list
-from .common.logging import get_logger
-from .common.opensearch_client import create_client, ensure_index
+from ..common.config import Settings, load_settings
+from ..common.embeddings import EmbeddingModel, to_list
+from ..common.logging import get_logger
+from ..common.opensearch_client import create_client, ensure_index
 
 LOGGER = get_logger(__name__)
 
