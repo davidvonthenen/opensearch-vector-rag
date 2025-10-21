@@ -8,10 +8,10 @@ from typing import Any, Dict, List, Sequence
 from flask import Flask, jsonify, request
 from opensearchpy.exceptions import RequestError
 
-from .common.config import Settings, load_settings
-from .common.embeddings import EmbeddingModel, to_list
-from .common.logging import get_logger
-from .common.opensearch_client import create_client, ensure_index, knn_search
+from ..common.config import Settings, load_settings
+from ..common.embeddings import EmbeddingModel, to_list
+from ..common.logging import get_logger
+from ..common.opensearch_client import create_client, ensure_index, knn_search
 
 LOGGER = get_logger(__name__)
 APP = Flask(__name__)

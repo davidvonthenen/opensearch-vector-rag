@@ -5,16 +5,20 @@ HOST ?= 0.0.0.0
 PORT ?= 8000
 QUESTION ?= Tell me about the connection between Ernie Wise and Vodafone.
 
-.PHONY: ingest serve query env
+.PHONY: ingest agent server query client env
 
 ingest:
-	$(PYTHON) -m src.ingest --data-dir $(DATA_DIR) --index-name $(INDEX)
+	$(PYTHON) -m src.1_ingest.ingest --data-dir $(DATA_DIR) --index-name $(INDEX)
 
-serve:
-	$(PYTHON) -m src.server
+agent:
+	$(PYTHON) -m src.2_rag_agent.server
+
+server: agent
 
 query:
-	$(PYTHON) -m src.client --question "$(QUESTION)"
+	$(PYTHON) -m src.3_rag_client.client --question "$(QUESTION)"
+
+client: query
 
 env:
 @echo "OPENSEARCH_HOST=$${OPENSEARCH_HOST:-127.0.0.1}"
