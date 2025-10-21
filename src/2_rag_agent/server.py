@@ -39,6 +39,10 @@ class LlamaCppBackend(LLMBackend):
         self._llama = None
         self._init_mode = "uninitialized"
 
+    def warm_up(self) -> None:
+        """Eagerly load the underlying llama.cpp model."""
+        self._ensure_loaded()
+
     def _build_kwargs(self, *, n_ctx: int | None = None, n_gpu_layers: int | None = None, low_vram: bool | None = None):
         # Defer import so that unit tests don't require llama_cpp
         from llama_cpp import Llama  # noqa: F401
@@ -107,6 +111,12 @@ EMBEDDER = EmbeddingModel(SETTINGS)
 OPENSEARCH_CLIENT = create_client(SETTINGS)
 ensure_index(SETTINGS, EMBEDDER.dimension)
 LLM = LlamaCppBackend(SETTINGS)
+try:
+    LLM.warm_up()
+    LOGGER.info("llama.cpp model preloaded successfully")
+except Exception:  # noqa: BLE001
+    LOGGER.exception("Failed to preload llama.cpp model during startup")
+    raise
 
 
 def _extract_user_question(messages: Sequence[Dict[str, str]]) -> str:
