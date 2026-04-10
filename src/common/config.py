@@ -22,6 +22,9 @@ class Settings:
     embedding_model: str = "Qwen/Qwen3-Embedding-0.6B"  # use thenlper/gte-small or Qwen/Qwen3-Embedding-0.6B
 
 
+    # LLM runtime
+    llm_backend: str = "mlx"          # supports llama.cpp (GGUF) or mlx
+
     # Llama.cpp
     llama_model_path: str = "Qwen2.5-7B-Instruct-1M-Q5_K_M.gguf"
     llama_ctx: int = 65536                  # "neural-chat = 32768, Qwen = 65536/1010000
@@ -30,6 +33,9 @@ class Settings:
     llama_n_batch: int = 256                 # prompt processing batch
     llama_n_ubatch: Optional[int] = 256      # physical micro-batch; None to let llama.cpp choose
     llama_low_vram: bool = True              # reduce Metal VRAM usage
+
+    # MLX
+    mlx_model_path: str = "Qwen2.5-7B-Instruct-4bit"
 
     # RAG
     rag_top_k: int = 3
@@ -57,6 +63,19 @@ def _get_bool(name: str, default_val: bool) -> bool:
     return v.lower() in ("1", "true", "yes", "on")
 
 
+def _resolve_models_path(name: str, default_rel_path: str) -> str:
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return str(Path.home() / "models" / default_rel_path)
+
+    candidate = Path(raw).expanduser()
+    if candidate.is_absolute():
+        return str(candidate)
+    if raw.startswith("./") or raw.startswith("../"):
+        return str(candidate)
+    return str(Path.home() / "models" / candidate)
+
+
 def load_settings(env_file: str | None = None) -> Settings:
     """Load settings from environment (.env) with sane defaults."""
     # Load a .env if present (project root or provided explicit path)
@@ -81,6 +100,7 @@ def load_settings(env_file: str | None = None) -> Settings:
         opensearch_port=_get_int("OPENSEARCH_PORT", Settings.opensearch_port),
         opensearch_index=os.getenv("OPENSEARCH_INDEX", Settings.opensearch_index),
         embedding_model=os.getenv("EMBEDDING_MODEL", Settings.embedding_model),
+        llm_backend=os.getenv("LLM_BACKEND", Settings.llm_backend),
         llama_model_path=os.getenv(
             "LLAMA_MODEL_PATH",
             str(Path.home() / "models" / Settings.llama_model_path),
@@ -91,6 +111,7 @@ def load_settings(env_file: str | None = None) -> Settings:
         llama_n_batch=_get_int("LLAMA_N_BATCH", Settings.llama_n_batch),
         llama_n_ubatch=_get_int("LLAMA_N_UBATCH", Settings.llama_n_ubatch or 0) or None,
         llama_low_vram=_get_bool("LLAMA_LOW_VRAM", Settings.llama_low_vram),
+        mlx_model_path=_resolve_models_path("MLX_MODEL_PATH", Settings.mlx_model_path),
         rag_top_k=_get_int("RAG_TOP_K", Settings.rag_top_k),
         rag_num_candidates=_get_int("RAG_NUM_CANDIDATES", Settings.rag_num_candidates),
         server_host=os.getenv("SERVER_HOST", Settings.server_host),

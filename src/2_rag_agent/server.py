@@ -1,4 +1,4 @@
-"""Flask server exposing an OpenAI-style chat completions endpoint with resilient llama.cpp init."""
+"""Flask server exposing an OpenAI-style chat completions endpoint with selectable local LLM backends."""
 from __future__ import annotations
 
 import time
@@ -106,16 +106,116 @@ class LlamaCppBackend(LLMBackend):
             raise
 
 
+class MlxLmBackend(LLMBackend):
+    """mlx-lm implementation for local MLX models on Apple Silicon."""
+
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+        self._model = None
+        self._tokenizer = None
+        self._init_mode = "uninitialized"
+
+    def warm_up(self) -> None:
+        """Eagerly load the underlying MLX model."""
+        self._ensure_loaded()
+
+    def _ensure_loaded(self) -> None:
+        if self._model is not None and self._tokenizer is not None:
+            return
+
+        from mlx_lm import load
+
+        LOGGER.info("Loading MLX model from %s", self.settings.mlx_model_path)
+        self._model, self._tokenizer = load(self.settings.mlx_model_path)
+        self._init_mode = "mlx"
+
+    def _build_prompt(self, messages: Sequence[Dict[str, str]]) -> str:
+        if self._tokenizer is None:
+            raise RuntimeError("MLX tokenizer not loaded")
+
+        if hasattr(self._tokenizer, "apply_chat_template") and getattr(self._tokenizer, "chat_template", None) is not None:
+            try:
+                return self._tokenizer.apply_chat_template(
+                    list(messages),
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+            except TypeError:
+                return self._tokenizer.apply_chat_template(
+                    list(messages),
+                    add_generation_prompt=True,
+                )
+
+        prompt_parts = []
+        for message in messages:
+            prompt_parts.append(f"{message.get('role', 'user')}: {message.get('content', '')}")
+        prompt_parts.append("assistant:")
+        return "\n\n".join(prompt_parts)
+
+    def chat(self, messages: Sequence[Dict[str, str]], **gen_kwargs: Any) -> Dict[str, Any]:
+        self._ensure_loaded()
+
+        from mlx_lm import generate
+        from mlx_lm.sample_utils import make_sampler
+
+        prompt = self._build_prompt(messages)
+        max_tokens = int(gen_kwargs.get("max_tokens", 1024))
+        temperature = float(gen_kwargs.get("temperature", 0.0))
+        top_p = float(gen_kwargs.get("top_p", 1.0))
+        sampler = make_sampler(temperature, top_p=top_p)
+
+        text = generate(
+            self._model,
+            self._tokenizer,
+            prompt=prompt,
+            max_tokens=max_tokens,
+            sampler=sampler,
+            verbose=False,
+        )
+
+        usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        if self._tokenizer is not None:
+            try:
+                prompt_tokens = len(self._tokenizer.encode(prompt))
+                completion_tokens = len(self._tokenizer.encode(text))
+                usage = {
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "total_tokens": prompt_tokens + completion_tokens,
+                }
+            except Exception:  # noqa: BLE001
+                LOGGER.debug("Unable to compute MLX token usage", exc_info=True)
+
+        return {
+            "choices": [
+                {
+                    "message": {"role": "assistant", "content": text},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": usage,
+        }
+
+
+def _create_llm_backend(settings: Settings) -> LLMBackend:
+    backend_name = getattr(settings, "llm_backend", "llama.cpp").strip().lower()
+    if backend_name in ("mlx", "mlx-lm", "mlx_lm"):
+        return MlxLmBackend(settings)
+    if backend_name in ("llama.cpp", "llama_cpp", "gguf"):
+        return LlamaCppBackend(settings)
+    raise ValueError(f"Unsupported llm backend: {settings.llm_backend}")
+
+
 SETTINGS = load_settings()
 EMBEDDER = EmbeddingModel(SETTINGS)
 OPENSEARCH_CLIENT = create_client(SETTINGS)
 ensure_index(SETTINGS, EMBEDDER.dimension)
-LLM = LlamaCppBackend(SETTINGS)
+LLM = _create_llm_backend(SETTINGS)
 try:
     LLM.warm_up()
-    LOGGER.info("llama.cpp model preloaded successfully")
+    LOGGER.info("%s model preloaded successfully", SETTINGS.llm_backend)
 except Exception:  # noqa: BLE001
-    LOGGER.exception("Failed to preload llama.cpp model during startup")
+    LOGGER.exception("Failed to preload %s model during startup", SETTINGS.llm_backend)
     raise
 
 
@@ -265,10 +365,12 @@ def chat_completions():
             "hits": _rag_hits_from_response(search_response),
         },
         "llama_runtime": {
+            "backend": getattr(SETTINGS, "llm_backend", "llama.cpp"),
             "init_mode": getattr(LLM, "_init_mode", "unknown"),
-            "ctx": getattr(SETTINGS, "llama_ctx", None),
-            "n_gpu_layers": getattr(SETTINGS, "llama_n_gpu_layers", None),
-            "n_batch": getattr(SETTINGS, "llama_n_batch", None),
+            "model_path": SETTINGS.mlx_model_path if getattr(SETTINGS, "llm_backend", "llama.cpp").strip().lower() in ("mlx", "mlx-lm", "mlx_lm") else SETTINGS.llama_model_path,
+            "ctx": getattr(SETTINGS, "llama_ctx", None) if getattr(SETTINGS, "llm_backend", "llama.cpp").strip().lower() not in ("mlx", "mlx-lm", "mlx_lm") else None,
+            "n_gpu_layers": getattr(SETTINGS, "llama_n_gpu_layers", None) if getattr(SETTINGS, "llm_backend", "llama.cpp").strip().lower() not in ("mlx", "mlx-lm", "mlx_lm") else None,
+            "n_batch": getattr(SETTINGS, "llama_n_batch", None) if getattr(SETTINGS, "llm_backend", "llama.cpp").strip().lower() not in ("mlx", "mlx-lm", "mlx_lm") else None,
         },
     }
     return jsonify(response_body)
