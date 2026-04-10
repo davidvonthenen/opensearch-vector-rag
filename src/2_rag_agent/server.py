@@ -173,7 +173,7 @@ def _rag_hits_from_response(response: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 def _compose_messages(question: str, context_block: str) -> List[Dict[str, str]]:
     system_prompt = (
-        "You are a fact-focused assistant. Use only the provided context snippets. "
+        "You are a fact-focused assistant. "
         "If the answer is not grounded in the snippets, respond with 'I don't know.' "
         "Provide concise answers."
     )

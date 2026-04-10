@@ -1,11 +1,18 @@
-Flask>=3.0
-opensearch-py>=2.6
-sentence-transformers>=3.0
-torch>=2.2
-numpy>=1.26
+opensearch-py==3.0.0
+
+torch==2.6.0
+numpy==1.26.4
 tqdm>=4.66
-python-dotenv==1.1.1
-llama-cpp-python[metal]>=0.3.4
+sentence-transformers==5.2.0
+
 requests>=2.32
 pydantic>=2.7
-spacy>=3.7
+spacy==3.8.5
+
+# inference
+python-dotenv==1.1.1
+llama-cpp-python==0.3.8
+openai==2.30.0
+# llama-cpp-python[metal]>=0.3.4
+flask==3.1.2
+

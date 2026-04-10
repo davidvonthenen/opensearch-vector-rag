@@ -1,6 +1,10 @@
 """Embedding utilities using sentence-transformers."""
 from __future__ import annotations
 
+import os
+# Force pure-Python protobuf to suppress MessageFactory C++ extension errors
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Iterable, List, Sequence, Union, Optional
