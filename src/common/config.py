@@ -15,7 +15,7 @@ class Settings:
 
     # OpenSearch
     opensearch_host: str = "127.0.0.1"
-    opensearch_port: int = 9201
+    opensearch_port: int = 9200
     opensearch_index: str = "bbc-vector-chunks"
 
     # Embeddings
@@ -23,7 +23,7 @@ class Settings:
 
 
     # LLM runtime
-    llm_backend: str = "mlx"          # supports llama.cpp (GGUF) or mlx
+    llm_backend: str = "llama.cpp"          # supports llama.cpp (GGUF) or mlx
 
     # Llama.cpp
     llama_model_path: str = "Qwen2.5-7B-Instruct-1M-Q5_K_M.gguf"
