@@ -9,21 +9,22 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-@dataclass(frozen=True)
+@dataclass
 class Settings:
     """Runtime configuration parameters for the application."""
 
     # OpenSearch
     opensearch_host: str = "127.0.0.1"
-    opensearch_port: int = 9200
-    opensearch_index: str = "bbc"
+    opensearch_port: int = 9201
+    opensearch_index: str = "bbc-vector-chunks"
 
     # Embeddings
-    embedding_model: str = "thenlper/gte-small"
+    embedding_model: str = "Qwen/Qwen3-Embedding-0.6B"  # use thenlper/gte-small or Qwen/Qwen3-Embedding-0.6B
+
 
     # Llama.cpp
-    llama_model_path: str = "neural-chat-7b-v3-3.Q4_K_M.gguf"
-    llama_ctx: int = 8192                    # keep conservative by default on laptops
+    llama_model_path: str = "Qwen2.5-7B-Instruct-1M-Q5_K_M.gguf"
+    llama_ctx: int = 65536                  # "neural-chat = 32768, Qwen = 65536/1010000
     llama_n_threads: int = max(1, (os.cpu_count() or 4) - 1)
     llama_n_gpu_layers: int = 20             # modest offload; fallback logic drops to CPU if needed
     llama_n_batch: int = 256                 # prompt processing batch
@@ -67,6 +68,13 @@ def load_settings(env_file: str | None = None) -> Settings:
             if candidate.exists():
                 load_dotenv(str(candidate))
                 break
+
+    opensearch_port = _get_int("OPENSEARCH_PORT", Settings.opensearch_port)
+    if opensearch_port != 9200:
+        print("\n-----------------------------------------------------")
+        print(f"WARNING: Using NON STANDARD OpenSearch Port: {opensearch_port}")
+        print("Default OpenSearch Port is 9200")
+        print("-----------------------------------------------------\n")
 
     return Settings(
         opensearch_host=os.getenv("OPENSEARCH_HOST", Settings.opensearch_host),
